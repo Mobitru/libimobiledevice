@@ -36,7 +36,9 @@ bin_PROGRAMS = \
 	idevicedebug \
 	idevicenotificationproxy \
 	idevicecrashreport \
-	idevicesetlocation
+	idevicesetlocation \
+	ideviceassistant \
+	idevicedevmodectl
 
 ideviceinfo_SOURCES = ideviceinfo.c
 ideviceinfo_CFLAGS = $(AM_CFLAGS)
@@ -127,3 +129,13 @@ idevicesetlocation_SOURCES = idevicesetlocation.c
 idevicesetlocation_CFLAGS = $(AM_CFLAGS)
 idevicesetlocation_LDFLAGS = $(top_builddir)/common/libinternalcommon.la $(AM_LDFLAGS)
 idevicesetlocation_LDADD = $(top_builddir)/src/libimobiledevice-1.0.la
+
+ideviceassistant_SOURCES = ideviceassistant.c
+ideviceassistant_CFLAGS = $(AM_CFLAGS)
+ideviceassistant_LDFLAGS = $(top_builddir)/common/libinternalcommon.la $(AM_LDFLAGS)
+ideviceassistant_LDADD = $(top_builddir)/src/libimobiledevice-1.0.la
+
+idevicedevmodectl_SOURCES = idevicedevmodectl.c
+idevicedevmodectl_CFLAGS = $(AM_CFLAGS)
+idevicedevmodectl_LDFLAGS = $(top_builddir)/common/libinternalcommon.la $(AM_LDFLAGS)
+idevicedevmodectl_LDADD = $(top_builddir)/src/libimobiledevice-1.0.la

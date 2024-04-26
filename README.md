@@ -2,6 +2,8 @@
 
 *A library to communicate with services on iOS devices using native protocols.*
 
+![](https://github.com/libimobiledevice/libimobiledevice/actions/workflows/build.yml/badge.svg)
+
 ## Features
 
 libimobiledevice is a cross-platform software library that talks the protocols
@@ -16,7 +18,7 @@ Some key features are:
 - **Implementation**: Object oriented architecture and service abstraction layer
 - **Cross-Platform:** Tested on Linux, macOS, Windows and Android platforms
 - **Utilities**: Provides various command-line utilities for device services
-- **SSL**: Allows choosing between OpenSSL or GnuTLS to handle SSL communication
+- **SSL**: Allows choosing between OpenSSL, GnuTLS, or MbedTLS to handle SSL communication
 - **Network**: Supports network connections with "WiFi sync" enabled devices
 - **Python:** Provides Cython based bindings for Python
 
@@ -29,7 +31,7 @@ to:
 * Backup and restore the device in a native way compatible with iTunes
 * Manage app icons arrangement on the device
 * Install, remove, list and basically manage apps
-* Activate a device using official serviers
+* Activate a device using official servers
 * Manage contacts, calendars, notes and bookmarks
 * Retrieve and remove crashreports
 * Retrieve various diagnostics information
@@ -55,6 +57,7 @@ First install all required dependencies and build tools:
 ```shell
 sudo apt-get install \
 	build-essential \
+	pkg-config \
 	checkinstall \
 	git \
 	autoconf \
@@ -62,6 +65,7 @@ sudo apt-get install \
 	libtool-bin \
 	libplist-dev \
 	libusbmuxd-dev \
+	libimobiledevice-glue-dev \
 	libssl-dev \
 	usbmuxd
 ```
@@ -94,10 +98,19 @@ make
 sudo make install
 ```
 
-By default, OpenSSL will be used. If you prefer GnuTLS, configure with
-`--disable-openssl` like this:
+By default, OpenSSL will be used as TLS/SSL library. If you prefer GnuTLS,
+configure with `--with-gnutls` like this:
 ```bash
-./autogen.sh --disable-openssl
+./autogen.sh --with-gnutls
+```
+
+MbedTLS is also supported and can be enabled by passing `--with-mbedtls` to
+configure. If mbedTLS is not installed in a default location, you need to set
+the environment variables `mbedtls_INCLUDES` to the path that contains the
+MbedTLS headers and `mbedtls_LIBDIR` to set the library path. Optionally,
+`mbedtls_LIBS` can be used to set the library names directly. Example:
+```bash
+./autogen.sh --with-mbedtls mbedtls_INCLUDES=/opt/local/include mbedtls_LIBDIR=/opt/local/lib
 ```
 
 ## Usage
@@ -115,6 +128,7 @@ The library bundles the following command-line utilities in the tools directory:
 | `idevice_id`               | List attached devices or print device name of given device         |
 | `idevicebackup`            | Create or restore backup for devices (legacy)                      |
 | `idevicebackup2`           | Create or restore backups for devices running iOS 4 or later       |
+| `idevicebtlogger`          | Capture Bluetooth HCI traffic from a device (requires log profile) |
 | `idevicecrashreport`       | Retrieve crash reports from a device                               |
 | `idevicedate`              | Display the current date or set it on a device                     |
 | `idevicedebug`             | Interact with the debugserver service of a device                  |
@@ -130,6 +144,7 @@ The library bundles the following command-line utilities in the tools directory:
 | `idevicescreenshot`        | Gets a screenshot from the connected device                        |
 | `idevicesetlocation`       | Simulate location on device                                        |
 | `idevicesyslog`            | Relay syslog of a connected device                                 |
+| `afcclient`                | Interact with device filesystem via AFC/HouseArrest                |
 
 Please consult the usage information or manual pages of each utility for a
 documentation of available command line options and usage examples like this:
@@ -151,7 +166,7 @@ ticket first to discuss the idea upfront to ensure less effort for everyone.
 
 Please make sure your contribution adheres to:
 * Try to follow the code style of the project
-* Commit messages should describe the change well without being to short
+* Commit messages should describe the change well without being too short
 * Try to split larger changes into individual commits of a common domain
 * Use your real name and a valid email address for your commits
 
@@ -179,4 +194,4 @@ iPadOS, tvOS, watchOS, and macOS are trademarks of Apple Inc.
 This project is an independent software and has not been authorized, sponsored,
 or otherwise approved by Apple Inc.
 
-README Updated on: 2020-06-12
+README Updated on: 2023-12-30

@@ -94,7 +94,7 @@ cdef class iDeviceEvent:
         def __get__(self):
             return self._c_event.conn_type
 
-cdef void idevice_event_cb(const_idevice_event_t c_event, void *user_data) with gil:
+cdef void idevice_event_cb(const_idevice_event_t c_event, void *user_data) noexcept:
     cdef iDeviceEvent event = iDeviceEvent.__new__(iDeviceEvent)
     event._c_event = c_event
     (<object>user_data)(event)
@@ -176,7 +176,7 @@ from libc.stdlib cimport *
 cdef class iDevice(Base):
     def __cinit__(self, object udid=None, *args, **kwargs):
         cdef char* c_udid = NULL
-        if isinstance(udid, basestring):
+        if isinstance(udid, (str, bytes)):
             c_udid = <bytes>udid
         elif udid is not None:
             raise TypeError("iDevice's constructor takes a string or None as the udid argument")

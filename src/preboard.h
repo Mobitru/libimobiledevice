@@ -22,9 +22,10 @@
 #ifndef __PREBOARD_H
 #define __PREBOARD_H
 
+#include "idevice.h"
 #include "libimobiledevice/preboard.h"
 #include "property_list_service.h"
-#include "common/thread.h"
+#include <libimobiledevice-glue/thread.h>
 
 struct preboard_client_private {
 	property_list_service_client_t parent;

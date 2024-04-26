@@ -27,10 +27,17 @@ enable communication debugging
 prints usage information
 .TP
 .B \-v, \-\-version
-prints version information.
+Prints version information.
 .TP
 .B \-\-no\-colors
 disable colored output
+.TP
+.B \-o, \-\-output FILE
+Write to FILE instead of stdout. This will disable writing colored output, but can be re-enabled with \f[B]\-\-colors\f[].
+If FILE already exists, it will be overwritten without warning.
+.TP
+.B \-\-colors
+Force writing colored output, e.g. when using \f[B]\-\-output\f[].
 
 .SH FILTER OPTIONS
 .TP
@@ -66,7 +73,7 @@ PROCESS is a string that can either be a numeric pid or a process name. It also 
 .B \-q, \-\-quiet
 set a filter to exclude common noisy processes
 
-Since the syslog can be quite noisy, this quick command line switch allows to silence out a predefined set of commonly known processes. The list of processes that are silenced can be retrieved with \f[B]\-\-quiet\-list\f[].
+Since the syslog can be quite noisy, this quick command line switch allows silencing a predefined set of commonly known processes. The list of processes that are silenced can be retrieved with \f[B]\-\-quiet\-list\f[].
 .TP
 .B \-\-quiet\-list
 prints the list of processes for \f[B]\-\-quiet\f[] and exits

@@ -20,6 +20,7 @@
 #include <libimobiledevice/lockdown.h>
 #include <libimobiledevice/service.h>
 #include <libimobiledevice/property_list_service.h>
+#include <libimobiledevice-glue/utils.h>
 
 //#define IPHONE_DEV_NAME "iPhone"
 #define TOOL_NAME "runnerdevmodectl"

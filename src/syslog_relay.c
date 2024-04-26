@@ -67,7 +67,7 @@ static syslog_relay_error_t syslog_relay_error(service_error_t err)
 	return SYSLOG_RELAY_E_UNKNOWN_ERROR;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_client_new(idevice_t device, lockdownd_service_descriptor_t service, syslog_relay_client_t * client)
+syslog_relay_error_t syslog_relay_client_new(idevice_t device, lockdownd_service_descriptor_t service, syslog_relay_client_t * client)
 {
 	*client = NULL;
 
@@ -95,14 +95,14 @@ LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_client_new(idevice_t devi
 	return 0;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_client_start_service(idevice_t device, syslog_relay_client_t * client, const char* label)
+syslog_relay_error_t syslog_relay_client_start_service(idevice_t device, syslog_relay_client_t * client, const char* label)
 {
 	syslog_relay_error_t err = SYSLOG_RELAY_E_UNKNOWN_ERROR;
 	service_client_factory_start_service(device, SYSLOG_RELAY_SERVICE_NAME, (void**)client, label, SERVICE_CONSTRUCTOR(syslog_relay_client_new), &err);
 	return err;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_client_free(syslog_relay_client_t client)
+syslog_relay_error_t syslog_relay_client_free(syslog_relay_client_t client)
 {
 	if (!client)
 		return SYSLOG_RELAY_E_INVALID_ARG;
@@ -113,12 +113,12 @@ LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_client_free(syslog_relay_
 	return err;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_receive(syslog_relay_client_t client, char* data, uint32_t size, uint32_t *received)
+syslog_relay_error_t syslog_relay_receive(syslog_relay_client_t client, char* data, uint32_t size, uint32_t *received)
 {
 	return syslog_relay_receive_with_timeout(client, data, size, received, 1000);
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_receive_with_timeout(syslog_relay_client_t client, char* data, uint32_t size, uint32_t *received, unsigned int timeout)
+syslog_relay_error_t syslog_relay_receive_with_timeout(syslog_relay_client_t client, char* data, uint32_t size, uint32_t *received, unsigned int timeout)
 {
 	syslog_relay_error_t res = SYSLOG_RELAY_E_UNKNOWN_ERROR;
 	int bytes = 0;
@@ -154,16 +154,15 @@ void *syslog_relay_worker(void *arg)
 		ret = syslog_relay_receive_with_timeout(srwt->client, &c, 1, &bytes, 100);
 		if (ret == SYSLOG_RELAY_E_TIMEOUT || ret == SYSLOG_RELAY_E_NOT_ENOUGH_DATA || ((bytes == 0) && (ret == SYSLOG_RELAY_E_SUCCESS))) {
 			continue;
-		} else if (ret < 0) {
+		}
+		if (ret < 0) {
 			debug_info("Connection to syslog relay interrupted");
 			break;
 		}
 		if (srwt->is_raw) {
 			srwt->cbfunc(c, srwt->user_data);
-		} else {
-			if (c != 0) {
-				srwt->cbfunc(c, srwt->user_data);
-			}
+		} else if (c != 0) {
+			srwt->cbfunc(c, srwt->user_data);
 		}
 	}
 
@@ -176,7 +175,7 @@ void *syslog_relay_worker(void *arg)
 	return NULL;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_start_capture(syslog_relay_client_t client, syslog_relay_receive_cb_t callback, void* user_data)
+syslog_relay_error_t syslog_relay_start_capture(syslog_relay_client_t client, syslog_relay_receive_cb_t callback, void* user_data)
 {
 	if (!client || !callback)
 		return SYSLOG_RELAY_E_INVALID_ARG;
@@ -204,7 +203,7 @@ LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_start_capture(syslog_rela
 	return res;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_start_capture_raw(syslog_relay_client_t client, syslog_relay_receive_cb_t callback, void* user_data)
+syslog_relay_error_t syslog_relay_start_capture_raw(syslog_relay_client_t client, syslog_relay_receive_cb_t callback, void* user_data)
 {
 	if (!client || !callback)
 		return SYSLOG_RELAY_E_INVALID_ARG;
@@ -232,7 +231,7 @@ LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_start_capture_raw(syslog_
 	return res;
 }
 
-LIBIMOBILEDEVICE_API syslog_relay_error_t syslog_relay_stop_capture(syslog_relay_client_t client)
+syslog_relay_error_t syslog_relay_stop_capture(syslog_relay_client_t client)
 {
 	if (client->worker) {
 		/* notify thread to finish */

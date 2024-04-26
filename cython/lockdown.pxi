@@ -210,14 +210,23 @@ cdef class LockdownClient(PropertyListService):
             raise
 
     cpdef set_value(self, bytes domain, bytes key, object value):
-        cdef plist.plist_t c_node = plist.native_to_plist_t(value)
+        cdef: 
+            plist.plist_t c_node = NULL
+            char* c_domain = NULL
+            char* c_key = NULL
+
+        c_node = plist.native_to_plist_t(value)
+        if domain is not None:
+            c_domain = domain
+        if key is not None:
+            c_key = key
         try:
-            self.handle_error(lockdownd_set_value(self._c_client, domain, key, c_node))
+            self.handle_error(lockdownd_set_value(self._c_client, c_domain, c_key, c_node))
         except BaseError, e:
             raise
         finally:
             if c_node != NULL:
-                plist.plist_free(c_node)
+                c_node = NULL
 
     cpdef remove_value(self, bytes domain, bytes key):
         self.handle_error(lockdownd_remove_value(self._c_client, domain, key))
@@ -230,12 +239,13 @@ cdef class LockdownClient(PropertyListService):
 
         if issubclass(service, BaseService) and \
             service.__service_name__ is not None \
-            and isinstance(service.__service_name__, basestring):
-            c_service_name = <bytes>service.__service_name__
-        elif isinstance(service, basestring):
-            c_service_name = <bytes>service
+            and isinstance(service.__service_name__, (str, bytes)):
+            c_service_name_str = service.__service_name__.encode('utf-8')
+        elif isinstance(service, (str, bytes)):
+            c_service_name_str = service.encode('utf-8')
         else:
             raise TypeError("LockdownClient.start_service() takes a BaseService or string as its first argument")
+        c_service_name = c_service_name_str
 
         try:
             self.handle_error(lockdownd_start_service(self._c_client, c_service_name, &c_descriptor))
@@ -253,7 +263,7 @@ cdef class LockdownClient(PropertyListService):
 
         if not hasattr(service_class, '__service_name__') and \
             not service_class.__service_name__ is not None \
-            and not isinstance(service_class.__service_name__, basestring):
+            and not isinstance(service_class.__service_name__, (str, bytes)):
             raise TypeError("LockdownClient.get_service_client() takes a BaseService as its first argument")
 
         descriptor = self.start_service(service_class)

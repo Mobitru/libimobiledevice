@@ -32,7 +32,10 @@ bin_PROGRAMS = \
 	idevicenotificationproxy \
 	idevicecrashreport \
 	idevicesetlocation \
+	ideviceassistant \
+	idevicedevmodectl \
 	afcclient
+	
 
 idevicebtlogger_SOURCES = idevicebtlogger.c
 idevicebtlogger_CFLAGS = $(AM_CFLAGS)
@@ -133,6 +136,11 @@ idevicesetlocation_SOURCES = idevicesetlocation.c
 idevicesetlocation_CFLAGS = $(AM_CFLAGS)
 idevicesetlocation_LDFLAGS = $(AM_LDFLAGS)
 idevicesetlocation_LDADD = $(top_builddir)/src/libimobiledevice-1.0.la
+
+ideviceassistant_SOURCES = ideviceassistant.c
+ideviceassistant_CFLAGS = $(AM_CFLAGS) $(limd_glue_CFLAGS)
+ideviceassistant_LDFLAGS = $(AM_LDFLAGS) $(limd_glue_LIBS)
+ideviceassistant_LDADD = $(top_builddir)/src/libimobiledevice-1.0.la
 
 afcclient_SOURCES = afcclient.c
 afcclient_CFLAGS = $(AM_CFLAGS) $(limd_glue_CFLAGS)

@@ -86,7 +86,8 @@ enum cmd_mode {
 	CMD_UNBACK,
 	CMD_CHANGEPW,
 	CMD_LEAVE,
-	CMD_CLOUD
+	CMD_CLOUD,
+    CMD_ERASE
 };
 
 enum cmd_flags {
@@ -1438,6 +1439,7 @@ static void print_usage(int argc, char **argv, int is_error)
 		"Create or restore backup in/from the specified directory.\n"
 		"\n"
 		"CMD:\n"
+        "  erase         erase all content for the device\n"
 		"  backup        create backup for the device\n"
 		"    --full              force full backup from device.\n"
 		"  restore       restore last backup to the device\n"
@@ -1618,8 +1620,11 @@ int main(int argc, char *argv[])
 		print_usage(argc+optind, argv-optind, 1);
 		return 2;
 	}
-
-	if (!strcmp(argv[0], "backup")) {
+    
+    if (!strcmp(argv[0], "erase")) {
+        cmd = CMD_ERASE;
+    }
+	else if (!strcmp(argv[0], "backup")) {
 		cmd = CMD_BACKUP;
 	}
 	else if (!strcmp(argv[0], "restore")) {
@@ -1718,7 +1723,7 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	if (cmd == CMD_CHANGEPW || cmd == CMD_CLOUD) {
+	if (cmd == CMD_CHANGEPW || cmd == CMD_CLOUD || cmd == CMD_ERASE) {
 		backup_directory = (char*)".this_folder_is_not_present_on_purpose";
 	} else {
 		if (backup_directory == NULL) {
@@ -2073,6 +2078,12 @@ checkpoint:
 				cmd = CMD_LEAVE;
 			}
 			break;
+            case CMD_ERASE:
+            PRINT_VERBOSE(1, "Starting Erase device...\n");
+            err = mobilebackup2_send_message(mobilebackup2, "EraseDevice", NULL);
+            result_code = err;
+            cmd = CMD_LEAVE;
+            break;
 			case CMD_RESTORE:
 			/* TODO: verify battery on AC enough battery remaining */
 

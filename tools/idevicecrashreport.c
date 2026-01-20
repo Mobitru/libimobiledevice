@@ -26,6 +26,8 @@
 
 #define TOOL_NAME "idevicecrashreport"
 
+#include <time.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +58,15 @@ const char* target_directory = NULL;
 static int extract_raw_crash_reports = 0;
 static int keep_crash_reports = 0;
 static int remove_all = 0;
+
+const char* device_source_directory = NULL;
+static int list_device_crashes = 0;
+static int save_device_crash_file = 0;
+static int bypass_ssl = 0;
+
+static void print_entry(const char* type, const char* name, const char* createDate, long long size);
+static time_t getTime(const char* value);
+static int afc_client_list_crash_reports(afc_client_t afc, const char* device_directory);
 
 static int file_exists(const char* path)
 {
@@ -260,6 +271,10 @@ static int afc_client_copy_and_remove_crash_reports(afc_client_t afc, const char
 				continue;
 			}
 
+            if (save_device_crash_file > 0 && strcmp(source_filename, device_source_directory) != 0) {
+                continue;
+            }
+            
 			/* copy file to host */
 			afc_error = afc_file_open(afc, source_filename, AFC_FOPEN_RDONLY, &handle);
 			if(afc_error != AFC_E_SUCCESS) {
@@ -310,6 +325,10 @@ static int afc_client_copy_and_remove_crash_reports(afc_client_t afc, const char
 			crash_report_count++;
 
 			res = 0;
+            
+            if (save_device_crash_file > 0 && strcmp(source_filename, device_source_directory) == 0) {
+                break;
+            }
 		}
 	}
 	afc_dictionary_free(list);
@@ -331,7 +350,6 @@ static void print_usage(int argc, char **argv, int is_error)
 		"\n"
 		"OPTIONS:\n"
 		"  -u, --udid UDID       target specific device by UDID\n"
-		"  -n, --network         connect to network device\n"
 		"  -e, --extract         extract raw crash report into separate '.crash' file\n"
 		"  -k, --keep            copy but do not remove crash reports from device\n"
 		"  -d, --debug           enable communication debugging\n"
@@ -339,6 +357,9 @@ static void print_usage(int argc, char **argv, int is_error)
 		"  -h, --help            prints usage information\n"
 		"  -v, --version         prints version information\n"
 		"  --remove-all          remove all crash logs found\n"
+        "  -l, --list            crashes from specific DEVICE_DIRECTORY, HOST_DIRECTORY argument is ignored\n"
+        "  -s, --save_file       saves specific DEVICE_FILE to local HOST_DIRECTORY\n"
+        "  -b, --bypass_ssl      bypass_ssl [iOS 13+]\n"
 		"\n"
 		"Homepage:    <" PACKAGE_URL ">\n"
 		"Bug Reports: <" PACKAGE_BUGREPORT ">\n"
@@ -355,8 +376,11 @@ int main(int argc, char* argv[])
 	lockdownd_error_t lockdownd_error = LOCKDOWN_E_SUCCESS;
 	afc_error_t afc_error = AFC_E_SUCCESS;
 
+    char* pch = NULL;
+    char* pdir = NULL;
+    int dir_name_lenght;
+    
 	const char* udid = NULL;
-	int use_network = 0;
 	const char* filename_filter = NULL;
 
 	int c = 0;
@@ -370,6 +394,9 @@ int main(int argc, char* argv[])
 		{ "extract", no_argument, NULL, 'e' },
 		{ "keep", no_argument, NULL, 'k' },
 		{ "remove-all", no_argument, NULL, 1 },
+        { "list", no_argument, NULL, 'l' },
+        { "save_file", no_argument, NULL, 's' },
+        { "bypass_ssl", no_argument, NULL, 'b' },
 		{ NULL, 0, NULL, 0}
 	};
 
@@ -390,9 +417,6 @@ int main(int argc, char* argv[])
 				return 2;
 			}
 			udid = optarg;
-			break;
-		case 'n':
-			use_network = 1;
 			break;
 		case 'h':
 			print_usage(argc, argv, 0);
@@ -417,7 +441,26 @@ int main(int argc, char* argv[])
 		case 1:
 			remove_all = 1;
 			break;
+        case 'l':
+            keep_crash_reports = 1;
+            list_device_crashes = 1;
+            break;
+        case 's':
+            save_device_crash_file = 1;
+            break;
+        case 'b':
+            bypass_ssl = 1;
+            break;
 		default:
+            if (target_directory == NULL) {
+                target_directory = optarg;
+                continue;
+            }
+            else if(device_source_directory == NULL) {
+                device_source_directory = optarg;
+                continue;
+            }
+            
 			print_usage(argc, argv, 1);
 			return 2;
 		}
@@ -438,17 +481,17 @@ int main(int argc, char* argv[])
 	}
 
 	/* check if target directory exists */
-	if (!file_exists(target_directory)) {
+	if (!file_exists(target_directory) && list_device_crashes == 0) {
 		fprintf(stderr, "ERROR: Directory '%s' does not exist.\n", target_directory);
 		return 1;
 	}
 
-	device_error = idevice_new_with_options(&device, udid, (use_network) ? IDEVICE_LOOKUP_NETWORK : IDEVICE_LOOKUP_USBMUX);
+    device_error = idevice_new(&device, udid);
 	if (device_error != IDEVICE_E_SUCCESS) {
 		if (udid) {
-			printf("No device found with udid %s.\n", udid);
+			printf("No device found with udid %s, is it plugged in?.\n", udid);
 		} else {
-			printf("No device found.\n");
+			printf("No device found, is it plugged in?.\n");
 		}
 		return -1;
 	}
@@ -471,15 +514,22 @@ int main(int argc, char* argv[])
 	}
 
 	/* trigger move operation on device */
-	service_client_t svcmove = NULL;
-	service_error_t service_error = service_client_new(device, service, &svcmove);
-	lockdownd_service_descriptor_free(service);
-	service = NULL;
-	if (service_error != SERVICE_E_SUCCESS) {
+    idevice_connection_t connection = NULL;
+    device_error = idevice_connect(device, service->port, &connection);
+    
+    if (device_error != IDEVICE_E_SUCCESS) {
 		lockdownd_client_free(lockdownd);
 		idevice_free(device);
 		return -1;
 	}
+    
+    if (bypass_ssl) {
+        idevice_error_t idev_err = IDEVICE_E_SUCCESS;
+        if ((idev_err = idevice_connection_enable_ssl(connection)) != IDEVICE_E_SUCCESS) {
+            fprintf(stderr, "idevice_connection_enable_ssl Failed\n");
+            return -1;
+        }
+    }
 
 	/* read "ping" message which indicates the crash logs have been moved to a safe harbor */
 	char *ping = malloc(4);
@@ -487,18 +537,24 @@ int main(int argc, char* argv[])
 	int attempts = 0;
 	while ((strncmp(ping, "ping", 4) != 0) && (attempts < 10)) {
 		uint32_t bytes = 0;
-		service_error = service_receive_with_timeout(svcmove, ping, 4, &bytes, 2000);
-		if (service_error == SERVICE_E_SUCCESS || service_error == SERVICE_E_TIMEOUT) {
+        device_error = idevice_connection_receive_timeout(connection, ping, 4, &bytes, 2000);
+        if ((bytes == 0) && (device_error == IDEVICE_E_SUCCESS)) {
 			attempts++;
 			continue;
 		}
 
-		fprintf(stderr, "ERROR: Crash logs could not be moved. Connection interrupted (%d).\n", service_error);
+		fprintf(stderr, "ERROR: Crash logs could not be moved. Connection interrupted.\n");
 		break;
 	}
-	service_client_free(svcmove);
+    
+    idevice_disconnect(connection);
 	free(ping);
 
+    if (service) {
+        lockdownd_service_descriptor_free(service);
+        service = NULL;
+    }
+    
 	if (device_error != IDEVICE_E_SUCCESS || attempts > 10) {
 		fprintf(stderr, "ERROR: Failed to receive ping message from crash report mover.\n");
 		lockdownd_client_free(lockdownd);
@@ -528,18 +584,148 @@ int main(int argc, char* argv[])
 		service = NULL;
 	}
 
-	/* recursively copy crash reports from the device to a local directory */
-	if (afc_client_copy_and_remove_crash_reports(afc, ".", target_directory, filename_filter) < 0) {
-		fprintf(stderr, "ERROR: Failed to get crash reports from device.\n");
-		afc_client_free(afc);
-		idevice_free(device);
-		return -1;
-	}
+    if(list_device_crashes > 0) {
+        if(afc_client_list_crash_reports(afc, target_directory) < 0) {
+            fprintf(stderr, "ERROR: Failed to get list of crash reports from device.\n");
+            afc_client_free(afc);
+            idevice_free(device);
+            return -1;
+        }
+    }
+    else {
+        /* recursively copy crash reports from the device to a local directory */
+        const char* source = NULL;
+        if (save_device_crash_file > 0) {
+            pch = strrchr(device_source_directory, '/');
+            dir_name_lenght = pch - device_source_directory;
+            pdir = malloc((sizeof(char) * dir_name_lenght) + 1);
+            strncpy(pdir, device_source_directory, dir_name_lenght);
+            pdir[dir_name_lenght] = '\0';
+            source = pdir;
+        } else {
+            source = device_source_directory;
+        }
+
+        if (afc_client_copy_and_remove_crash_reports(afc, source, target_directory, filename_filter) < 0) {
+            fprintf(stderr, "ERROR: Failed to get crash reports from device.\n");
+            afc_client_free(afc);
+            idevice_free(device);
+            free(pdir);
+            return -1;
+        }
+    }
 
 	printf("Done.\n");
 
 	afc_client_free(afc);
 	idevice_free(device);
-
+    free(pdir);
+    
 	return 0;
+}
+
+static void print_entry(const char* type, const char* name, const char* createDate, long long size)
+{
+    printf("{ \"type\": \"%s\", \"name\": \"%s\", \"size\": \"%lld\", \"createDate\": \"%s\"}", type, name, size, createDate);
+}
+
+static time_t getTime(const char* value) {
+    return (time_t)(atoll(value) / 1000000000);
+}
+
+static int afc_client_list_crash_reports(afc_client_t afc, const char* device_directory) {
+    afc_error_t afc_error;
+    int k;
+    int res = -1;
+    int crash_report_count = 0;
+    char source_filename[512];
+    struct tm * timeinfo;
+      char buffer [80];
+
+    if (!afc)
+        return res;
+
+    char** list = NULL;
+    afc_error = afc_read_directory(afc, device_directory, &list);
+    if (afc_error != AFC_E_SUCCESS) {
+        //fprintf(stderr, "ERROR: Could not read device directory '%s'\n", device_directory);
+        return res;
+    }
+
+    /* ensure we have a trailing slash */
+    strcpy(source_filename, device_directory);
+    if (source_filename[strlen(source_filename)-1] != '/') {
+        strcat(source_filename, "/");
+    }
+    int device_directory_length = strlen(source_filename);
+
+    printf("{\"crashLogs\":[");
+
+    for (k = 0; list[k]; k++) {
+        if (!strcmp(list[k], ".") || !strcmp(list[k], "..")) {
+            continue;
+        }
+        char **fileinfo = NULL;
+        struct stat stbuf;
+        stbuf.st_size = 0;
+
+        /* assemble absolute source filename */
+        strcpy(((char*)source_filename) + device_directory_length, list[k]);
+
+        /* get file information */
+        afc_get_file_info(afc, source_filename, &fileinfo);
+        if (!fileinfo) {
+            //printf("Failed to read information for '%s'. Skipping...\n", source_filename);
+            continue;
+        }
+
+        /* parse file information */
+        int i;
+        for (i = 0; fileinfo[i]; i+=2) {
+            if (!strcmp(fileinfo[i], "st_size")) {
+                stbuf.st_size = atoll(fileinfo[i+1]);
+            } else if (!strcmp(fileinfo[i], "st_ifmt")) {
+                if (!strcmp(fileinfo[i+1], "S_IFREG")) {
+                    stbuf.st_mode = S_IFREG;
+                } else if (!strcmp(fileinfo[i+1], "S_IFDIR")) {
+                    stbuf.st_mode = S_IFDIR;
+                } else if (!strcmp(fileinfo[i+1], "S_IFLNK")) {
+                    stbuf.st_mode = S_IFLNK;
+                } else if (!strcmp(fileinfo[i+1], "S_IFBLK")) {
+                    stbuf.st_mode = S_IFBLK;
+                } else if (!strcmp(fileinfo[i+1], "S_IFCHR")) {
+                    stbuf.st_mode = S_IFCHR;
+                } else if (!strcmp(fileinfo[i+1], "S_IFIFO")) {
+                    stbuf.st_mode = S_IFIFO;
+                } else if (!strcmp(fileinfo[i+1], "S_IFSOCK")) {
+                    stbuf.st_mode = S_IFSOCK;
+                }
+            } else if (!strcmp(fileinfo[i], "st_nlink")) {
+                stbuf.st_nlink = atoi(fileinfo[i+1]);
+            } else if (!strcmp(fileinfo[i], "st_mtime")) {
+                stbuf.st_mtime = getTime(fileinfo[i+1]);
+            }
+        }
+
+          timeinfo = localtime (&stbuf.st_mtime);
+          strftime (buffer,80,"%FT%T%z",timeinfo);
+
+        if(S_ISDIR(stbuf.st_mode)) {
+            print_entry("dir", source_filename, buffer, stbuf.st_size);
+        } else if(S_ISLNK(stbuf.st_mode)){
+            print_entry("symlink", source_filename, buffer, stbuf.st_size);
+        } else {
+            print_entry("file", source_filename, buffer, stbuf.st_size);
+        }
+
+        if(list[k+1]){printf(",\n");}
+    }
+    printf("]}");
+    afc_dictionary_free(list);
+
+    /* no reports, no error */
+    if (crash_report_count == 0)
+        res = 0;
+
+    return res;
 }

@@ -544,10 +544,10 @@ int main(int argc, char* argv[])
         if ((bytes == 0) && (device_error == IDEVICE_E_SUCCESS)) {
 			attempts++;
 			continue;
+		} else if (device_error < 0) {
+			fprintf(stderr, "ERROR: Crash logs could not be moved. Connection interrupted.\n");
+			break;
 		}
-
-		fprintf(stderr, "ERROR: Crash logs could not be moved. Connection interrupted.\n");
-		break;
 	}
     
     idevice_disconnect(connection);

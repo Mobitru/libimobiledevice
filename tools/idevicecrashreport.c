@@ -405,7 +405,7 @@ int main(int argc, char* argv[])
 #endif
 
 	/* parse cmdline args */
-	while ((c = getopt_long(argc, argv, "dhu:nvf:ek", longopts, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "dhu:nvf:eklsb", longopts, NULL)) != -1) {
 		switch (c) {
 		case 'd':
 			idevice_set_debug_level(1);
@@ -615,7 +615,7 @@ int main(int argc, char* argv[])
         }
     }
 
-	printf("Done.\n");
+	printf("\n");
 
 	afc_client_free(afc);
 	idevice_free(device);

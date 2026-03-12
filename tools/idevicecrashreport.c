@@ -476,6 +476,9 @@ int main(int argc, char* argv[])
 			return 2;
 		}
 		target_directory = argv[0];
+        if (argv[1]) {
+            device_source_directory = argv[1];
+        }
 	} else {
 		target_directory = ".";
 	}

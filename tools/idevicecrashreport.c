@@ -476,6 +476,9 @@ int main(int argc, char* argv[])
 			return 2;
 		}
 		target_directory = argv[0];
+        if (argv[1]) {
+            device_source_directory = argv[1];
+        }
 	} else {
 		target_directory = ".";
 	}
@@ -541,10 +544,10 @@ int main(int argc, char* argv[])
         if ((bytes == 0) && (device_error == IDEVICE_E_SUCCESS)) {
 			attempts++;
 			continue;
+		} else if (device_error < 0) {
+			fprintf(stderr, "ERROR: Crash logs could not be moved. Connection interrupted.\n");
+			break;
 		}
-
-		fprintf(stderr, "ERROR: Crash logs could not be moved. Connection interrupted.\n");
-		break;
 	}
     
     idevice_disconnect(connection);
